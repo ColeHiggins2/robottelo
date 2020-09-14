@@ -15,6 +15,9 @@
 
 :Upstream: No
 """
+import smtplib
+
+import mailtest
 import pytest
 from fauxfactory import gen_string
 from nailgun import entities
@@ -543,3 +546,46 @@ class ReportTemplateTestCase(APITestCase):
             data_csv = rt.report_data(data={'id': rt.id, 'job_id': scheduled_csv['job_id']})
             assert vm.hostname in data_csv
             assert DEFAULT_SUBSCRIPTION_NAME in data_csv
+
+    @tier3
+    @pytest.mark.usefixtures("setup_content")
+    def test_positive_entitlement_notificiations(self):
+        """
+        :id: a3454b0c-37ab-4532-b8ce-f1ba8d913e64
+
+        :setup:
+
+        :steps:
+
+        :expectedresults:
+
+        :CaseImportance:
+
+        """
+
+        with VirtualMachine(distro=DISTRO_RHEL7) as vm:
+            vm.install_katello_ca()
+            vm.register_contenthost(self.org_setup.label, self.ak_setup.name)
+            assert vm.subscribed
+            rt = (
+                entities.ReportTemplate()
+                .search(query={'search': 'name="Subscription - Entitlement Report"'})[0]
+                .read()
+            )
+            scheduled_csv = rt.schedule_report(
+                data={
+                    'id': '{}-Subscription - Entitlement Report'.format(rt.id),
+                    'organization_id': self.org_setup.id,
+                    'report_format': 'csv',
+                    "input_values": {"Days from Now": "no limit"},
+                    'mail_to': 'user@test.com',
+                }
+            )
+            data_csv = rt.report_data(data={'id': rt.id, 'job_id': scheduled_csv['job_id']})
+            assert "Days Remaining" in data_csv
+
+            with mailtest.Server() as mt:
+                sender = smtplib.SMTP('localhost', 1025)
+                sender.sendmail('user@test.com', ['another@redhat.com'], 'This is a test email')
+                sender.close()
+                print(mt.emails)

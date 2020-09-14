@@ -415,3 +415,11 @@ def oscap_content_path():
 def default_pxetemplate():
     pxe_template = entities.ProvisioningTemplate().search(query={'search': DEFAULT_PXE_TEMPLATE})
     return pxe_template[0].read()
+
+
+@pytest.fixture(scope='module')
+def test_sending_some_message(smtpserver):
+    # mailer = MyMailer(host=smtpserver.addr[0], port=smtpserver.addr[1])
+    # mailer.send(to='bob@example.com', from_='alice@example.com',
+    # subject='MyMailer v1.0', body='Check out my mailer!')
+    assert len(smtpserver.outbox) == 1
